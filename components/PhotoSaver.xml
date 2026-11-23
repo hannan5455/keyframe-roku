@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="PhotoSaver" extends="Scene">
+  <interface>
+    <field id="photos" type="stringarray" onChange="onPhotos" />
+  </interface>
+
+  <script type="text/brightscript" uri="pkg:/components/PhotoSaver.brs" />
+
+  <children>
+    <Rectangle width="1920" height="1080" color="0x000000FF" />
+
+    <!-- Two stacked photos; "b" fades in and out over "a" to crossfade -->
+    <Poster id="a" width="1920" height="1080"
+            loadWidth="1920" loadHeight="1080" loadDisplayMode="scaleToFit" />
+    <Poster id="b" width="1920" height="1080" opacity="0"
+            loadWidth="1920" loadHeight="1080" loadDisplayMode="scaleToFit" />
+
+    <Label id="msg" width="1920" height="1080"
+           horizAlign="center" vertAlign="center"
+           text="Looking for photos on the USB drive..." />
+
+    <Timer id="timer" repeat="true" duration="10" />
+
+    <Animation id="fade" duration="1.5" easeFunction="linear">
+      <FloatFieldInterpolator id="fadeInterp" key="[0.0, 1.0]"
+                              keyValue="[0.0, 1.0]" fieldToInterp="b.opacity" />
+    </Animation>
+  </children>
+</component>
