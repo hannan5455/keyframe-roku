@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="Settings" extends="Scene">
+  <interface>
+    <!-- Current values: order, fill, caption, pan, clock -->
+    <field id="settings" type="assocarray" onChange="onSettings" />
+    <!-- Set "current" (index of the saved album) before "albums" -->
+    <field id="current" type="integer" value="0" />
+    <field id="albums" type="stringarray" onChange="onAlbums" />
+    <!-- Output: {key, value} for an option, or {key: "album", index} -->
+    <!-- Not named "change": that is a built-in read-only field on every node -->
+    <field id="settingChange" type="assocarray" alwaysNotify="true" />
+  </interface>
+
+  <script type="text/brightscript" uri="pkg:/components/Settings.brs" />
+
+  <children>
+    <Rectangle width="1920" height="1080" color="0x0B2440FF" />
+
+    <Label id="title" translation="[160, 90]" width="1600"
+           text="Keyframe settings" font="font:LargeBoldSystemFont" />
+    <Label id="hint" translation="[160, 165]" width="1600" color="0xFFD166FF"
+           text="Press OK to change a setting. Changes are saved straight away." />
+
+    <!-- Main menu: one row per setting -->
+    <LabelList id="menu" translation="[160, 270]" itemSize="[1600, 72]" numRows="8" />
+
+    <!-- Album list, shown in place of the menu when "Album" is chosen -->
+    <RadioButtonList id="albumList" translation="[160, 270]" visible="false"
+                     itemSize="[1600, 64]" numRows="11" checkOnSelect="true" />
+  </children>
+</component>

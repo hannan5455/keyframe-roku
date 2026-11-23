@@ -1,4 +1,4 @@
-' USB Photos screensaver.
+' Keyframe: a screensaver that plays the photos on a USB drive.
 ' There is deliberately no Main(): a package with only RunScreenSaver is
 ' treated by Roku as a system-wide screensaver.
 
@@ -9,7 +9,15 @@ sub RunScreenSaver()
     scene = screen.CreateScene("PhotoSaver")
     screen.Show()
 
-    scene.photos = PhotosInAlbum(FindPhotos(), GetAlbum())
+    ' Options must be set before photos, which starts the slideshow
+    scene.options = {
+        shuffle: GetSetting("order", "shuffle") <> "ordered"
+        fill: GetSetting("fill", "blur") <> "black"
+        caption: GetSetting("caption", "off")
+        pan: GetSetting("pan", "off") = "on"
+        clock: GetSetting("clock", "off") = "on"
+    }
+    scene.photos = PhotosInAlbum(FindPhotos(), GetSetting("album", ""))
 
     while true
         msg = wait(0, port)
@@ -17,58 +25,112 @@ sub RunScreenSaver()
     end while
 end sub
 
-' Settings screen (Settings > Theme > Screensavers > USB Photos > settings):
-' pick which folder on the USB drive to play.
+' Settings screen (Settings > Theme > Screensavers > Keyframe > settings).
+' The screen reports each change and it is saved here straight away.
 sub RunScreenSaverSettings()
     screen = CreateObject("roSGScreen")
     port = CreateObject("roMessagePort")
     screen.SetMessagePort(port)
-    scene = screen.CreateScene("AlbumPicker")
+    scene = screen.CreateScene("Settings")
     screen.Show()
 
     albums = FindAlbums(FindPhotos())
     names = ["All photos"]
     current = 0
-    saved = LCase(GetAlbum())
+    saved = LCase(GetSetting("album", ""))
     for i = 0 to albums.Count() - 1
         names.Push(albums[i])
         if saved <> "" and LCase(albums[i]) = saved then current = i + 1
     end for
 
+    scene.settings = {
+        order: GetSetting("order", "shuffle")
+        fill: GetSetting("fill", "blur")
+        caption: GetSetting("caption", "off")
+        pan: GetSetting("pan", "off")
+        clock: GetSetting("clock", "off")
+    }
     scene.current = current
     scene.albums = names
-    scene.observeField("chosen", port)
+    scene.observeField("settingChange", port)
 
     while true
         msg = wait(0, port)
         if type(msg) = "roSGScreenEvent" then
             if msg.IsScreenClosed() then return
-        else if type(msg) = "roSGNodeEvent" and msg.getField() = "chosen" then
-            idx = msg.getData()
-            if idx <= 0 then
-                SetAlbum("")
-            else if idx <= albums.Count() then
-                SetAlbum(albums[idx - 1])
+        else if type(msg) = "roSGNodeEvent" and msg.getField() = "settingChange" then
+            change = msg.getData()
+            if change = invalid or change.key = invalid then
+                ' nothing to save
+            else if change.key = "album" then
+                idx = change.index
+                if idx <= 0 then
+                    SetSetting("album", "")
+                else if idx <= albums.Count() then
+                    SetSetting("album", albums[idx - 1])
+                end if
+            else
+                SetSetting(change.key, change.value)
             end if
-            screen.Close()
-            return
         end if
     end while
 end sub
 
-' The chosen album is a folder path relative to the drive, e.g. "Trips/2025".
-' An empty string means all photos.
-function GetAlbum() as string
+' Saved settings (all strings):
+'   album    folder path relative to the drive, e.g. "Trips/2025"; "" = all photos
+'   order    "shuffle" or "ordered"
+'   fill     "blur" or "black": what shows around photos that do not fill the screen
+'   caption  "off", "album" or "file"
+'   pan      "off" or "on"
+'   clock    "off" or "on"
+function GetSetting(key as string, fallback as string) as string
     sec = CreateObject("roRegistrySection", "settings")
-    if sec.Exists("album") then return sec.Read("album")
-    return ""
+    if sec.Exists(key) then return sec.Read(key)
+    return fallback
 end function
 
-sub SetAlbum(album as string)
+sub SetSetting(key as string, value as string)
     sec = CreateObject("roRegistrySection", "settings")
-    sec.Write("album", album)
+    sec.Write(key, value)
     sec.Flush()
 end sub
+
+' Returns the paths of every photo on every attached USB drive.
+function FindPhotos() as object
+    fs = CreateObject("roFileSystem")
+    photos = []
+    for each vol in fs.GetVolumeList()
+        if LCase(Left(vol, 3)) = "ext" then ScanDir(fs, vol + "/", 0, photos)
+    end for
+    return photos
+end function
+
+sub ScanDir(fs as object, path as string, depth as integer, photos as object)
+    if depth > 12 or photos.Count() >= 10000 then return
+    for each name in fs.GetDirectoryListing(path)
+        ' Skip hidden files, including the "._" files macOS writes to USB drives
+        if Left(name, 1) <> "." then
+            full = path + name
+            if IsPhoto(name) then
+                photos.Push(full)
+            else
+                info = fs.Stat(full)
+                if info <> invalid and info.type = "directory" then
+                    ScanDir(fs, full + "/", depth + 1, photos)
+                end if
+            end if
+            if photos.Count() >= 10000 then return
+        end if
+    end for
+end sub
+
+function IsPhoto(name as string) as boolean
+    lower = LCase(name)
+    for each ext in [".jpg", ".jpeg", ".png", ".gif"]
+        if Right(lower, Len(ext)) = ext then return true
+    end for
+    return false
+end function
 
 ' Strips the drive name: "ext1:/Trips/a.jpg" -> "Trips/a.jpg"
 function RelPath(path as string) as string
@@ -108,41 +170,4 @@ function FindAlbums(photos as object) as object
     end for
     albums.Sort("i")
     return albums
-end function
-
-' Returns the paths of every photo on every attached USB drive.
-function FindPhotos() as object
-    fs = CreateObject("roFileSystem")
-    photos = []
-    for each vol in fs.GetVolumeList()
-        if LCase(Left(vol, 3)) = "ext" then ScanDir(fs, vol + "/", 0, photos)
-    end for
-    return photos
-end function
-
-sub ScanDir(fs as object, path as string, depth as integer, photos as object)
-    if depth > 12 or photos.Count() >= 10000 then return
-    for each name in fs.GetDirectoryListing(path)
-        ' Skip hidden files, including the "._" files macOS writes to USB drives
-        if Left(name, 1) <> "." then
-            full = path + name
-            if IsPhoto(name) then
-                photos.Push(full)
-            else
-                info = fs.Stat(full)
-                if info <> invalid and info.type = "directory" then
-                    ScanDir(fs, full + "/", depth + 1, photos)
-                end if
-            end if
-            if photos.Count() >= 10000 then return
-        end if
-    end for
-end sub
-
-function IsPhoto(name as string) as boolean
-    lower = LCase(name)
-    for each ext in [".jpg", ".jpeg", ".png", ".gif"]
-        if Right(lower, Len(ext)) = ext then return true
-    end for
-    return false
 end function

@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <component name="PhotoSaver" extends="Scene">
   <interface>
+    <!-- {shuffle, fill, caption, pan, clock}; set before "photos" -->
+    <field id="options" type="assocarray" />
     <field id="photos" type="stringarray" onChange="onPhotos" />
   </interface>
 
@@ -9,21 +11,81 @@
   <children>
     <Rectangle width="1920" height="1080" color="0x000000FF" />
 
-    <!-- Two stacked photos; "b" fades in and out over "a" to crossfade -->
-    <Poster id="a" width="1920" height="1080"
-            loadWidth="1920" loadHeight="1080" loadDisplayMode="scaleToFit" />
-    <Poster id="b" width="1920" height="1080" opacity="0"
-            loadWidth="1920" loadHeight="1080" loadDisplayMode="scaleToFit" />
+    <!-- Two stacked slides; "groupB" fades in and out over "groupA" to crossfade.
+         Each slide is the photo fitted to the screen, over an optional backdrop:
+         the same photo loaded as a tiny 16x9 image and stretched to fill the
+         screen, which smears it into soft colour, then dimmed. The backdrop shows wherever
+         the photo itself does not reach, e.g. beside a portrait photo.
+
+         Each photo is loaded with "limitSize", which keeps its true shape, and
+         is then sized and centred in code (layoutPhoto) to fit the screen. It
+         sits inside a clipping group of exactly that size, so pan and zoom
+         moves the picture inside a frame whose edges stay perfectly still.
+
+         The photo Posters are set to 0.99 opacity on purpose. A fully opaque
+         Poster is treated by Roku as covering its whole 1920x1080 box, even
+         where a fitted portrait photo leaves the sides empty, so everything
+         behind it (the backdrop) is skipped when drawing. Being very slightly
+         see-through stops that. -->
+    <Group id="groupA">
+      <Group id="backdropA" visible="false">
+        <Poster id="bgA" width="1920" height="1080"
+                loadWidth="16" loadHeight="9" loadDisplayMode="scaleToZoom" />
+        <Rectangle width="1920" height="1080" color="0x00000080" />
+      </Group>
+      <Group id="clipA" clippingRect="[0, 0, 1920, 1080]">
+        <Poster id="a" width="1920" height="1080" opacity="0.99"
+                loadWidth="1920" loadHeight="1080" loadDisplayMode="limitSize" />
+      </Group>
+    </Group>
+    <Group id="groupB" opacity="0">
+      <Rectangle width="1920" height="1080" color="0x000000FF" />
+      <Group id="backdropB" visible="false">
+        <Poster id="bgB" width="1920" height="1080"
+                loadWidth="16" loadHeight="9" loadDisplayMode="scaleToZoom" />
+        <Rectangle width="1920" height="1080" color="0x00000080" />
+      </Group>
+      <Group id="clipB" clippingRect="[0, 0, 1920, 1080]">
+        <Poster id="b" width="1920" height="1080" opacity="0.99"
+                loadWidth="1920" loadHeight="1080" loadDisplayMode="limitSize" />
+      </Group>
+    </Group>
+
+    <!-- Optional caption, bottom left -->
+    <Group id="captionGroup" translation="[60, 960]" visible="false">
+      <Rectangle id="captionBg" width="400" height="64" color="0x00000099" />
+      <Label id="captionLabel" translation="[20, 0]" height="64" vertAlign="center" />
+    </Group>
+
+    <!-- Optional clock; swaps between the top corners to avoid burn-in -->
+    <Group id="clockGroup" translation="[1580, 50]" visible="false">
+      <Label id="clockShadow" translation="[3, 3]" width="280" height="90" horizAlign="center"
+             vertAlign="center" font="font:LargeBoldSystemFont" color="0x000000B0" />
+      <Label id="clockLabel" width="280" height="90" horizAlign="center"
+             vertAlign="center" font="font:LargeBoldSystemFont" />
+    </Group>
 
     <Label id="msg" width="1920" height="1080"
            horizAlign="center" vertAlign="center"
            text="Looking for photos on the USB drive..." />
 
-    <Timer id="timer" repeat="true" duration="10" />
+    <!-- Time each photo stays up; restarted each time a photo is revealed -->
+    <Timer id="timer" repeat="false" duration="10" />
+    <Timer id="clockTimer" repeat="true" duration="5" />
 
     <Animation id="fade" duration="1.5" easeFunction="linear">
       <FloatFieldInterpolator id="fadeInterp" key="[0.0, 1.0]"
-                              keyValue="[0.0, 1.0]" fieldToInterp="b.opacity" />
+                              keyValue="[0.0, 1.0]" fieldToInterp="groupB.opacity" />
+    </Animation>
+
+    <!-- Optional slow pan and zoom; lasts one photo plus its crossfade -->
+    <Animation id="zoomA" duration="11.5" easeFunction="linear">
+      <Vector2DFieldInterpolator id="zoomAInterp" key="[0.0, 1.0]"
+                                 keyValue="[ [1.0, 1.0], [1.12, 1.12] ]" fieldToInterp="a.scale" />
+    </Animation>
+    <Animation id="zoomB" duration="11.5" easeFunction="linear">
+      <Vector2DFieldInterpolator id="zoomBInterp" key="[0.0, 1.0]"
+                                 keyValue="[ [1.0, 1.0], [1.12, 1.12] ]" fieldToInterp="b.scale" />
     </Animation>
   </children>
 </component>

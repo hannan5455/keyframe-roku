@@ -2,10 +2,13 @@
 
 A Roku screensaver that plays a slideshow of the photos on a USB key. No account, no cloud service and no internet connection needed: plug in a key, pick an album, done.
 
-- Shuffles your photos, 10 seconds each, with a crossfade
+- Shows each photo for 10 seconds, with a crossfade
+- Shuffled by default, or in order by file name
+- Portrait photos sit on a blurred copy of themselves instead of between black bars
 - **Every folder on the key is an album, and you can have as many as you like**
 - Play one album at a time, or everything
-- Your album choice is remembered across restarts
+- Optional extras, all off by default: a caption, a slow pan and zoom, and a clock
+- Your settings are remembered across restarts
 
 ## Albums
 
@@ -30,9 +33,34 @@ USB key
 
 **"All photos" plays the whole key**, including loose photos that are not in any folder. This is the default.
 
-**To switch albums:** on the Roku go to Settings → Theme → Screensavers, highlight Keyframe, and open its settings option. Press OK on an album. The choice is saved on the Roku. If the chosen folder later disappears from the key, Keyframe falls back to all photos.
+**To switch albums:** on the Roku go to Settings → Theme → Screensavers, highlight Keyframe, and open its settings option. Choose Album, then press OK on the one you want. The choice is saved on the Roku. If the chosen folder later disappears from the key, Keyframe falls back to all photos.
 
-The only ceilings are practical ones: Keyframe reads up to 10,000 photos per key and follows folders up to 12 levels deep.
+## Settings
+
+Everything is on one settings screen: on the Roku go to Settings → Theme → Screensavers, highlight Keyframe, and open its settings option. Press OK on a row to change it. Changes are saved straight away; press Back when you are done.
+
+| Setting | Choices | Default |
+| --- | --- | --- |
+| Album | All photos, or any folder on the key | All photos |
+| Order | Shuffle, or in order by file name | Shuffle |
+| Background | Blurred photo, or black | Blurred photo |
+| Caption | Off, album name, or file name | Off |
+| Pan and zoom | Off or on | Off |
+| Clock | Off or on | Off |
+
+**Order.** With Shuffle, the album is put in a new random order each time the screensaver starts, and every photo is shown once before any repeats. In order plays photos sorted by folder and then by file name, starting from the first photo each time. Name files with leading zeros (`01`, `02`, ... `10`) to control the sequence, since `10` sorts before `2` otherwise.
+
+**Background.** Photos are always shown whole, never cropped, so a portrait photo on a wide TV leaves space on either side. With Blurred photo, that space is filled with a soft, dimmed copy of the same photo. With Black, it is left black.
+
+**Caption.** Shows a small label in the bottom-left corner: either the album (folder) the photo is in, or the photo's file name. Loose photos that are not in a folder have no album caption.
+
+**Pan and zoom.** Each photo drifts slowly in or out while it is on screen, instead of sitting still.
+
+**Clock.** Shows the time in a top corner, in the Roku's own 12- or 24-hour format. It swaps corners with each photo so it never sits in one place.
+
+## Limits
+
+Keyframe reads up to 10,000 photos per key and follows folders up to 12 levels deep.
 
 ## What you need
 
@@ -46,11 +74,24 @@ The only ceilings are practical ones: Keyframe reads up to 10,000 photos per key
 - **Size:** photos about 1920 pixels on the longest side look best on a 1080p TV (3840 for 4K). Much smaller photos look blurry when stretched to the screen; much larger ones are slower to load.
 - **Use the originals.** Photos that have been sent through a chat, a messaging app or email are often shrunk on the way. Export from the Photos app with File → Export → Export Unmodified Original, or AirDrop them from the phone.
 
-On a Mac, this converts a folder of HEIC or JPG originals into TV-sized JPGs in a `jpg` subfolder, leaving the originals untouched. Run it in Terminal from inside the folder:
+- **Rotation:** phones often store a photo sideways along with a "turn me" tag. Roku ignores that tag, so those photos appear on their side unless they are fixed first.
+
+### The prep tool (Mac)
+
+`tools/prep_photos.py` handles all of the above in one step. It needs only Python 3, which macOS already has.
 
 ```bash
-mkdir -p jpg && sips -s format jpeg -s formatOptions 90 -Z 1920 *.* --out jpg
+python3 tools/prep_photos.py ~/Pictures/Originals ~/Pictures/ForRoku
 ```
+
+It reads every photo under the first folder and writes a TV-ready copy into the second:
+
+- converts HEIC and other formats to JPG
+- shrinks large photos to 1920 pixels on the longest side (add `--size 3840` for a 4K TV); small photos are never enlarged
+- turns sideways photos upright
+- keeps your folder layout, so folders still work as albums
+- lists any photos too small to look sharp on a TV
+- never modifies the originals
 
 Copy the photos (in folders, if you want albums) onto the key, eject it, and plug it into the Roku.
 
@@ -80,13 +121,14 @@ To update later, upload a newer zip the same way. It replaces the installed vers
 - Roku adds "(dev)" to the name of every sideloaded app. That cannot be removed.
 - A Roku holds one sideloaded app at a time, so installing another developer app replaces Keyframe.
 - On a Roku TV the screensaver generally does not run over a live HDMI input such as a cable box or game console. It runs when the Roku is idle on its home screen or in a paused streaming app.
-- Photos are shown as stored. If one appears sideways, open it on a computer, rotate it and save it again.
+- Roku ignores the rotation tag that phones add to photos. Run them through the prep tool so they are stored upright.
 
 ## Troubleshooting
 
 | What you see | What to do |
 | --- | --- |
 | "No photos found" | Check that the key is plugged into the Roku and holds JPG, PNG or GIF files. If the Roku does not recognise the key at all, reformat it as FAT32 (this erases it) and copy the photos back. |
+| Sideways photos | The photo is stored rotated with a tag that Roku ignores. Run your photos through `tools/prep_photos.py`. |
 | Blurry photos | The files are too small. Check their dimensions and re-export from the originals, as described under Preparing photos. |
 | An album is missing from the picker | The folder has no supported photos in it, for example only HEIC files. |
 | The remote sequence does nothing | Press the buttons a little faster, starting from the home screen. |
@@ -106,8 +148,9 @@ This writes `keyframe.zip`, ready to upload to the Roku.
 manifest                    app name, version and icons
 source/main.brs             finds photos and albums, runs the screensaver and settings screens
 components/PhotoSaver.*     the slideshow
-components/AlbumPicker.*    the album picker
+components/Settings.*       the settings screen and album picker
 images/                     icons
+tools/prep_photos.py        converts, resizes and straightens photos for the key (Mac)
 tools/mkicon.py             regenerates the icons (Python 3, no dependencies)
 ```
 
