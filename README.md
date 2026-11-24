@@ -64,7 +64,9 @@ Keyframe reads up to 10,000 photos per key and follows folders up to 12 levels d
 
 ## What you need
 
-- A Roku with a USB port: a Roku Ultra, most Roku TVs, or some Streambars. Express and Streaming Stick models do not have one.
+- A Roku with its own USB port: a Roku Ultra (not the Ultra LT), most Roku TVs, or a Streambar. Express and Streaming Stick models do not have one.
+  - The port has to be on the Roku itself. If you use a Roku stick or box plugged into another brand of TV, a key in the TV's USB port will not work: the Roku cannot see it.
+  - Developed and tested on a Roku TV. Other models with a USB port should behave the same, but have not been tried.
 - A USB key formatted as FAT32 or exFAT (most are, out of the box).
 - A computer on the same network as the Roku, for the one-time install.
 
